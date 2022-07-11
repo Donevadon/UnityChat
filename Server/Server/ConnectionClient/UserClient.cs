@@ -8,14 +8,11 @@ public class UserClient : IClient, IDisposable
 {
     private readonly CancellationTokenSource _cancellation = new();
     private readonly Socket _socket;
-
     private UserData _data;
-
-    public UserClient(Socket socket)
-    {
-        _socket = socket;
-    }
-
+    
+    public event Action<IData, string> MessageReceived;
+    public event Action<IClient>? Disconnected;
+    private Status IsConnect => _socket.Connected ? Status.Online : Status.Offline;
     public IData Data
     {
         get
@@ -26,11 +23,13 @@ public class UserClient : IClient, IDisposable
         }
     }
 
-    private Status IsConnect => _socket.Connected ? Status.Online : Status.Offline;
-
-    public event Action<IData, string> MessageReceived;
-    public event Action<IClient>? Disconnected;
-
+    public UserClient(Socket socket)
+    {
+        _socket = socket;
+        Disconnected += c => Console.WriteLine($"{nameof(Disconnected)}: " + c.Data.Nick);
+        MessageReceived += (d, m) => Console.WriteLine($"{nameof(MessageReceived)}: {d.Nick}: {m}");
+    }
+    
     public void Send(object message, ClientType type)
     {
         using var stream = new MemoryStream();
@@ -63,6 +62,56 @@ public class UserClient : IClient, IDisposable
         _cancellation.Cancel();
     }
 
+    private UserData ReceiveUserDataAndStartThreadReceive()
+    {
+        var connected = Receive(out UserData data);
+        if (connected)
+        {
+            var receiveThread = new Thread(ReceiveMessage)
+            {
+                IsBackground = true
+            };
+            receiveThread.Start();
+        }
+        else
+        {
+            Disconnect();
+        }
+
+        return data;
+    }
+    
+    private bool Receive<T>(out T result) where T : class
+    {
+        result = default!;
+        var connected = Receive(out var json);
+        if (connected)
+        {
+            Console.WriteLine($"Received: {json}");
+            result = JsonSerializer.Deserialize<T>(json) ?? throw new ArgumentNullException();
+        }
+
+        return connected;
+    }
+
+    private bool Receive(out string result)
+    {
+        var builder = new StringBuilder();
+        var data = new byte[256];
+
+        do
+        {
+            var bytes = _socket.Receive(data);
+            if (bytes != 0)
+            {
+                builder.Append(Encoding.Unicode.GetString(data, 0, bytes));
+            }
+        } while (_socket.Available > 0);
+
+        result = builder.ToString();
+        return _socket.Connected;
+    }
+
     private void ReceiveMessage()
     {
         var token = _cancellation.Token;
@@ -84,57 +133,6 @@ public class UserClient : IClient, IDisposable
                 timeout++;
             }
         }
-    }
-
-    private UserData ReceiveUserDataAndStartThreadReceive()
-    {
-        var connected = Receive(out UserData data);
-        if (connected)
-        {
-            var receiveThread = new Thread(ReceiveMessage)
-            {
-                IsBackground = true
-            };
-            receiveThread.Start();
-        }
-        else
-        {
-            Disconnect();
-        }
-
-        return data;
-    }
-
-    private bool Receive<T>(out T result) where T : class
-    {
-        result = default!;
-        var connected = Receive(out var json);
-        if (connected)
-        {
-            result = JsonSerializer.Deserialize<T>(json) ?? throw new ArgumentNullException();
-        }
-
-        return connected;
-    }
-
-    private bool Receive(out string result)
-    {
-        var builder = new StringBuilder();
-        var data = new byte[256];
-
-        do
-        {
-            var bytes = _socket.Receive(data);
-            if (bytes != 0)
-            {
-                builder.Append(Encoding.Unicode.GetString(data, 0, bytes));
-            }
-        } while (_socket.Available > 0);
-
-        Console.WriteLine($"Received: {builder}");
-
-        result = builder.ToString();
-        return _socket.Connected;
     }
 
     private void Disconnect()

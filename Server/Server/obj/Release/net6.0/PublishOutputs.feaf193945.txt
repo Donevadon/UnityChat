@@ -1,0 +1,5 @@
+/media/doneva/linux/UnityProjectsLinux/UnityChat/Builds/Server/Server
+/media/doneva/linux/UnityProjectsLinux/UnityChat/Builds/Server/Server.dll
+/media/doneva/linux/UnityProjectsLinux/UnityChat/Builds/Server/Server.deps.json
+/media/doneva/linux/UnityProjectsLinux/UnityChat/Builds/Server/Server.runtimeconfig.json
+/media/doneva/linux/UnityProjectsLinux/UnityChat/Builds/Server/Server.pdb

@@ -4,6 +4,7 @@ namespace Server.Messages;
 
 public class LocalDb : IMessageDb
 {
+    private const int StartCount = 20;
     private readonly List<Message> _messages = new();
 
     public event Action<IMessage>? Added;
@@ -25,7 +26,7 @@ public class LocalDb : IMessageDb
     {
         var messages = _messages
             .OrderBy(message => message.Timestamp)
-            .Take(20)
+            .Take(StartCount)
             .ToArray();
 
         if (messages.Length > 0)
